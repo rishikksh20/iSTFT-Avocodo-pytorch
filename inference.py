@@ -57,7 +57,7 @@ def inference(a):
             wav = wav / MAX_WAV_VALUE
             wav = torch.FloatTensor(wav).to(device)
             x = get_mel(wav.unsqueeze(0))
-            spec, phase = generator(x)
+            spec, phase, _, _ = generator(x)
             y_g_hat = stft.inverse(spec, phase)
             audio = y_g_hat.squeeze()
             audio = audio * MAX_WAV_VALUE

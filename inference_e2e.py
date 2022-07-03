@@ -50,7 +50,7 @@ def inference(a):
         for i, filname in enumerate(filelist):
             x = np.load(os.path.join(a.input_mels_dir, filname))
             x = torch.FloatTensor(x).to(device)
-            spec, phase = generator(x)
+            spec, phase, _, _ = generator(x)
             y_g_hat = stft.inverse(spec, phase)
             audio = y_g_hat.squeeze()
             audio = audio * MAX_WAV_VALUE

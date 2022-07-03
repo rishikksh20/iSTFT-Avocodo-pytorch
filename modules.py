@@ -24,12 +24,10 @@ class CoMBD(torch.nn.Module):
         fmap = []
         for l in self.convs:
             x = l(x)
-            print(x.shape)
             x = F.leaky_relu(x, 0.1)
             fmap.append(x)
         x = self.conv_post(x)
-        print(x.shape)
-        fmap.append(x)
+        #fmap.append(x)
         x = torch.flatten(x, 1, -1)
         return x, fmap
 
@@ -78,11 +76,11 @@ class SubBandDiscriminator(torch.nn.Module):
     def forward(self, x):
         fmap = []
 
-        for l in self.convs:
+        for l in self.mdcs:
             x = l(x)
             fmap.append(x)
         x = self.conv_post(x)
-        fmap.append(x)
+        #fmap.append(x)
         x = torch.flatten(x, 1, -1)
 
         return x, fmap
