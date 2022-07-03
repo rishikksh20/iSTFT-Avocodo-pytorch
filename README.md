@@ -1,5 +1,10 @@
 # iSTFT Avocodo
-iSTFT like generator and Avocodo like discriminators
+iSTFT's generator and Avocodo's discriminators
+
+## Training :
+```
+python train.py --config config_v1.json
+```
 
 ## Notes :
 * Two of iSTFT Generator version can be used with Avocodo discriminaators.
