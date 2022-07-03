@@ -38,7 +38,9 @@ def scan_checkpoint(cp_dir, prefix):
 
 def inference(a):
     generator = Generator(h).to(device)
-    stft = TorchSTFT(filter_length=h.gen_istft_n_fft, hop_length=h.gen_istft_hop_size, win_length=h.gen_istft_n_fft).to(device)
+    num_ups = len(h.upsample_rates)
+    stft = TorchSTFT(filter_length=h.gen_istft_n_fft[num_ups], hop_length=h.gen_istft_hop_size[num_ups],
+                     win_length=h.gen_istft_n_fft[num_ups]).to(device)
 
     state_dict_g = load_checkpoint(a.checkpoint_file, device)
     generator.load_state_dict(state_dict_g['generator'])

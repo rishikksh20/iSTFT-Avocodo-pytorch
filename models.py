@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 from utils import init_weights, get_padding
+from modules import PQMF, CoMBD, SubBandDiscriminator
 
 LRELU_SLOPE = 0.1
 
@@ -93,11 +94,14 @@ class Generator(torch.nn.Module):
             for j, (k, d) in enumerate(zip(h.resblock_kernel_sizes, h.resblock_dilation_sizes)):
                 self.resblocks.append(resblock(h, ch, k, d))
 
-        self.post_n_fft = h.gen_istft_n_fft
+        self.post_n_fft = h.gen_istft_n_fft[self.num_upsamples]
         self.conv_post = weight_norm(Conv1d(ch, self.post_n_fft + 2, 7, 1, padding=3))
         self.ups.apply(init_weights)
         self.conv_post.apply(init_weights)
         self.reflection_pad = torch.nn.ReflectionPad1d((1, 0))
+
+        self.out_proj_x1 = weight_norm(Conv1d(h.upsample_initial_channel // 4, 1, 7, 1, padding=3))
+        self.out_proj_x2 = weight_norm(Conv1d(h.upsample_initial_channel // 8, 1, 7, 1, padding=3))
 
     def forward(self, x):
         x = self.conv_pre(x)
@@ -111,13 +115,17 @@ class Generator(torch.nn.Module):
                 else:
                     xs += self.resblocks[i*self.num_kernels+j](x)
             x = xs / self.num_kernels
+            if i == 1:
+                x1 = self.out_proj_x1(x)
+            elif i == 2:
+                x2 = self.out_proj_x2(x)
         x = F.leaky_relu(x)
         x = self.reflection_pad(x)
         x = self.conv_post(x)
         spec = torch.exp(x[:,:self.post_n_fft // 2 + 1, :])
         phase = torch.sin(x[:, self.post_n_fft // 2 + 1:, :])
 
-        return spec, phase
+        return spec, phase, x1, x2
 
     def remove_weight_norm(self):
         print('Removing weight norm...')
@@ -250,6 +258,150 @@ class MultiScaleDiscriminator(torch.nn.Module):
             fmap_gs.append(fmap_g)
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+
+
+
+class MultiCoMBDiscriminator(torch.nn.Module):
+
+    def __init__(self, kernels, channels, groups, strides):
+        super(MultiCoMBDiscriminator, self).__init__()
+        self.combd_1 = CoMBD(filters=channels, kernels=kernels[0], groups=groups, strides=strides)
+        self.combd_2 = CoMBD(filters=channels, kernels=kernels[1], groups=groups, strides=strides)
+        self.combd_3 = CoMBD(filters=channels, kernels=kernels[2], groups=groups, strides=strides)
+
+        self.pqmf_2 = PQMF(N=2, taps=256, cutoff=0.25, beta=10.0)
+        self.pqmf_4 = PQMF(N=4, taps=192, cutoff=0.13, beta=10.0)
+
+    def forward(self, x, x2, x1, x_hat, x2_hat, x1_hat):
+        y = []
+        y_hat = []
+        fmap = []
+        fmap_hat = []
+
+        p3, p3_fmap = self.combd_3(x)
+        y.append(p3)
+        fmap.append(p3_fmap)
+
+        p3_hat, p3_fmap_hat = self.combd_3(x_hat)
+        y_hat.append(p3_hat)
+        fmap_hat.append(p3_fmap_hat)
+
+        p2_, p2_fmap_ = self.combd_2(x2)
+        y.append(p2_)
+        fmap.append(p2_fmap_)
+
+        p2_hat_, p2_fmap_hat_ = self.combd_2(x2_hat)
+        y_hat.append(p2_hat_)
+        fmap_hat.append(p2_fmap_hat_)
+
+        p1_, p1_fmap_ = self.combd_1(x1)
+        y.append(p1_)
+        fmap.append(p1_fmap_)
+
+        p1_hat_, p1_fmap_hat_ = self.combd_1(x1_hat)
+        y_hat.append(p1_hat_)
+        fmap_hat.append(p1_fmap_hat_)
+
+        x2_ = self.pqmf_2(x)[:, :1, :]    # Select first band
+        x1_ = self.pqmf_4(x)[:, :1, :]    # Select first band
+
+        x2_hat_ = self.pqmf_2(x_hat)
+        x1_hat_ = self.pqmf_4(x_hat)
+
+        p2, p2_fmap = self.combd_2(x2_)
+        y.append(p2)
+        fmap.append(p2_fmap)
+
+        p2_hat, p2_fmap_hat = self.combd_2(x2_hat_)
+        y_hat.append(p2_hat)
+        fmap_hat.append(p2_fmap_hat)
+
+        p1, p1_fmap = self.combd_1(x1_)
+        y.append(p1)
+        fmap.append(p1_fmap)
+
+        p1_hat, p1_fmap_hat = self.combd_1(x1_hat_)
+        y_hat.append(p1_hat)
+        fmap_hat.append(p1_fmap_hat)
+
+        return y, y_hat, fmap, fmap_hat
+
+class MultiSubBandDiscriminator(torch.nn.Module):
+
+    def __init__(self, tkernels, fkernel, tchannels, fchannels, tstrides, fstride, tdilations, fdilations, tsubband,
+                 n, m, freq_init_ch):
+
+        super(MultiSubBandDiscriminator, self).__init__()
+
+        self.fsbd = SubBandDiscriminator(init_channel=freq_init_ch, channels=fchannels, kernel=fkernel,
+                                         strides=fstride, dilations=fdilations)
+
+        self.tsubband1 = tsubband[0]
+        self.tsbd1 = SubBandDiscriminator(init_channel=self.tsubband1, channels=tchannels, kernel=tkernels[0],
+                                          strides=tstrides[0], dilations=tdilations[0])
+
+        self.tsubband2 = tsubband[1]
+        self.tsbd2 = SubBandDiscriminator(init_channel=self.tsubband2, channels=tchannels, kernel=tkernels[1],
+                                          strides=tstrides[1], dilations=tdilations[1])
+
+        self.tsubband3 = tsubband[2]
+        self.tsbd3 = SubBandDiscriminator(init_channel=self.tsubband3, channels=tchannels, kernel=tkernels[2],
+                                          strides=tstrides[2], dilations=tdilations[2])
+
+
+        self.pqmf_n = PQMF(N=n, taps=256, cutoff=0.03, beta=10.0)
+        self.pqmf_m = PQMF(N=m, taps=256, cutoff=0.1, beta=9.0)
+
+    def forward(self, x, x_hat):
+        fmap = []
+        fmap_hat = []
+        y = []
+        y_hat = []
+
+        # Time analysis
+        xn = self.pqmf_n(x)
+        xn_hat = self.pqmf_n(x_hat)
+
+        q3, feat_q3 = self.tsbd3(xn[:, :self.tsubband3, :])
+        q3_hat, feat_q3_hat = self.tsbd3(xn_hat[:, :self.tsubband3, :])
+        y.append(q3)
+        y_hat.append(q3_hat)
+        fmap.append(feat_q3)
+        fmap_hat.append(feat_q3_hat)
+
+        q2, feat_q2 = self.tsbd2(xn[:, :self.tsubband2, :])
+        q2_hat, feat_q2_hat = self.tsbd2(xn_hat[:, :self.tsubband2, :])
+        y.append(q2)
+        y_hat.append(q2_hat)
+        fmap.append(feat_q2)
+        fmap_hat.append(feat_q2_hat)
+
+        q1, feat_q1 = self.tsbd1(xn[:, :self.tsubband1, :])
+        q1_hat, feat_q1_hat = self.tsbd1(xn_hat[:, :self.tsubband1, :])
+        y.append(q1)
+        y_hat.append(q1_hat)
+        fmap.append(feat_q1)
+        fmap_hat.append(feat_q1_hat)
+
+        # Frequency analysis
+        xm = self.pqmf_m(x)
+        xm_hat = self.pqmf_m(x_hat)
+
+        xm = xm.transpose(-2, -1)
+        xm_hat = xm_hat.transpose(-2, -1)
+
+        q4, feat_q4 = self.fsbd(xm)
+        q4_hat, feat_q4_hat = self.fsbd(xm_hat)
+        y.append(q4)
+        y_hat.append(q4_hat)
+        fmap.append(feat_q4)
+        fmap_hat.append(feat_q4_hat)
+
+        return y, y_hat, fmap, fmap_hat
+
+
+
+
 
 
 def feature_loss(fmap_r, fmap_g):

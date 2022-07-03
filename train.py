@@ -33,7 +33,9 @@ def train(rank, a, h):
     generator = Generator(h).to(device)
     mpd = MultiPeriodDiscriminator().to(device)
     msd = MultiScaleDiscriminator().to(device)
-    stft = TorchSTFT(filter_length=h.gen_istft_n_fft, hop_length=h.gen_istft_hop_size, win_length=h.gen_istft_n_fft).to(device)
+    num_ups = len(h.upsample_rates)
+    stft = TorchSTFT(filter_length=h.gen_istft_n_fft[num_ups], hop_length=h.gen_istft_hop_size[num_ups],
+                     win_length=h.gen_istft_n_fft[num_ups]).to(device)
 
     if rank == 0:
         print(generator)
@@ -121,7 +123,7 @@ def train(rank, a, h):
             y_mel = torch.autograd.Variable(y_mel.to(device, non_blocking=True))
             y = y.unsqueeze(1)
             # y_g_hat = generator(x)
-            spec, phase = generator(x)
+            spec, phase, x1, x2 = generator(x)
 
             y_g_hat = stft.inverse(spec, phase)
 
@@ -197,7 +199,7 @@ def train(rank, a, h):
                         for j, batch in enumerate(validation_loader):
                             x, y, _, y_mel = batch
                             # y_g_hat = generator(x.to(device))
-                            spec, phase = generator(x.to(device))
+                            spec, phase, x1, x2 = generator(x.to(device))
 
                             y_g_hat = stft.inverse(spec, phase)
 
