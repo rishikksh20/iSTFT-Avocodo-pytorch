@@ -1,5 +1,5 @@
 # iSTFT Avocodo
-iSTFT like generator and Avocodo like discriminators
+iSTFT's generator and Avocodo's discriminators
 
 ## Training :
 ```
