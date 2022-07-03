@@ -1,6 +1,11 @@
 # iSTFT Avocodo
 iSTFT like generator and Avocodo like discriminators
 
+## Training :
+```
+python train.py --config config_v1.json
+```
+
 ## Notes :
 * Two of iSTFT Generator version can be used with Avocodo discriminaators.
 * Losses should similar to HiFi-GAN.
