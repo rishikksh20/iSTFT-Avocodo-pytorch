@@ -4,7 +4,7 @@ iSTFT like generator and Avocodo like discriminators
 ## Notes :
 * Two of iSTFT Generator version can be used with Avocodo discriminaators.
 * Losses should similar to HiFi-GAN.
-* 40 % speed up  in training as well as inference aspected.
+* 50 % speed up  in training and 60 % improvement in inference speed.
 
 
 ## Citations :
