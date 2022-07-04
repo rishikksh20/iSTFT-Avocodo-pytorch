@@ -125,7 +125,7 @@ def train(rank, a, h):
             y_mel = torch.autograd.Variable(y_mel.to(device, non_blocking=True))
             y = y.unsqueeze(1)
             # y_g_hat = generator(x)
-            spec, phase, x1, x2 = generator(x)
+            spec, phase, x1 = generator(x)
 
             y_g_hat = stft.inverse(spec, phase)
 
@@ -135,7 +135,7 @@ def train(rank, a, h):
             optim_d.zero_grad()
 
             # MPD
-            y_df_hat_r, y_df_hat_g, _, _ = mcmbd(y, y_g_hat.detach(), x2.detach(), x1.detach())
+            y_df_hat_r, y_df_hat_g, _, _ = mcmbd(y, y_g_hat.detach(), x1.detach())
             loss_disc_f, losses_disc_f_r, losses_disc_f_g = discriminator_loss(y_df_hat_r, y_df_hat_g)
 
             # MSD
@@ -153,7 +153,7 @@ def train(rank, a, h):
             # L1 Mel-Spectrogram Loss
             loss_mel = F.l1_loss(y_mel, y_g_hat_mel) * 45
 
-            y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mcmbd(y, y_g_hat, x2, x1)
+            y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mcmbd(y, y_g_hat, x1)
             y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = msbd(y, y_g_hat)
             loss_fm_f = 2 * feature_loss(fmap_f_r, fmap_f_g)
             loss_fm_s = 2 * feature_loss(fmap_s_r, fmap_s_g)
@@ -201,7 +201,7 @@ def train(rank, a, h):
                         for j, batch in enumerate(validation_loader):
                             x, y, _, y_mel = batch
                             # y_g_hat = generator(x.to(device))
-                            spec, phase, x1, x2 = generator(x.to(device))
+                            spec, phase, x1 = generator(x.to(device))
 
                             y_g_hat = stft.inverse(spec, phase)
 

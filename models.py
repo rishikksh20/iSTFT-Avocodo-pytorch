@@ -101,7 +101,7 @@ class Generator(torch.nn.Module):
         self.reflection_pad = torch.nn.ReflectionPad1d((1, 0))
 
         self.out_proj_x1 = weight_norm(Conv1d(h.upsample_initial_channel // 4, 1, 7, 1, padding=3))
-        self.out_proj_x2 = weight_norm(Conv1d(h.upsample_initial_channel // 8, 1, 7, 1, padding=3))
+        #self.out_proj_x2 = weight_norm(Conv1d(h.upsample_initial_channel // 8, 1, 7, 1, padding=3))
 
     def forward(self, x):
         x = self.conv_pre(x)
@@ -117,15 +117,15 @@ class Generator(torch.nn.Module):
             x = xs / self.num_kernels
             if i == 1:
                 x1 = self.out_proj_x1(x)
-            elif i == 2:
-                x2 = self.out_proj_x2(x)
+            # elif i == 2:
+            #     x2 = self.out_proj_x2(x)
         x = F.leaky_relu(x)
         x = self.reflection_pad(x)
         x = self.conv_post(x)
         spec = torch.exp(x[:,:self.post_n_fft // 2 + 1, :])
         phase = torch.sin(x[:, self.post_n_fft // 2 + 1:, :])
 
-        return spec, phase, x1, x2
+        return spec, phase, x1 #, x2
 
     def remove_weight_norm(self):
         print('Removing weight norm...')
@@ -272,7 +272,7 @@ class MultiCoMBDiscriminator(torch.nn.Module):
         self.pqmf_2 = PQMF(N=2, taps=256, cutoff=0.25, beta=10.0)
         self.pqmf_4 = PQMF(N=4, taps=192, cutoff=0.13, beta=10.0)
 
-    def forward(self, x, x_hat, x2_hat, x1_hat):
+    def forward(self, x, x_hat, x1_hat):
         y = []
         y_hat = []
         fmap = []
@@ -286,19 +286,19 @@ class MultiCoMBDiscriminator(torch.nn.Module):
         y_hat.append(p3_hat)
         fmap_hat.append(p3_fmap_hat)
 
-        x2_ = self.pqmf_2(x)[:, :1, :]  # Select first band
+        #x2_ = self.pqmf_2(x)[:, :1, :]  # Select first band
         x1_ = self.pqmf_4(x)[:, :1, :]  # Select first band
 
-        x2_hat_ = self.pqmf_2(x_hat)[:, :1, :]
+        #x2_hat_ = self.pqmf_2(x_hat)[:, :1, :]
         x1_hat_ = self.pqmf_4(x_hat)[:, :1, :]
 
-        p2_, p2_fmap_ = self.combd_2(x2_)
-        y.append(p2_)
-        fmap.append(p2_fmap_)
+        # p2_, p2_fmap_ = self.combd_2(x2_)
+        # y.append(p2_)
+        # fmap.append(p2_fmap_)
 
-        p2_hat_, p2_fmap_hat_ = self.combd_2(x2_hat)
-        y_hat.append(p2_hat_)
-        fmap_hat.append(p2_fmap_hat_)
+        # p2_hat_, p2_fmap_hat_ = self.combd_2(x2_hat)
+        # y_hat.append(p2_hat_)
+        # fmap_hat.append(p2_fmap_hat_)
 
         p1_, p1_fmap_ = self.combd_1(x1_)
         y.append(p1_)
@@ -309,16 +309,13 @@ class MultiCoMBDiscriminator(torch.nn.Module):
         fmap_hat.append(p1_fmap_hat_)
 
 
-
-
-
-        p2, p2_fmap = self.combd_2(x2_)
-        y.append(p2)
-        fmap.append(p2_fmap)
-
-        p2_hat, p2_fmap_hat = self.combd_2(x2_hat_)
-        y_hat.append(p2_hat)
-        fmap_hat.append(p2_fmap_hat)
+        # p2, p2_fmap = self.combd_2(x2_)
+        # y.append(p2)
+        # fmap.append(p2_fmap)
+        #
+        # p2_hat, p2_fmap_hat = self.combd_2(x2_hat_)
+        # y_hat.append(p2_hat)
+        # fmap_hat.append(p2_fmap_hat)
 
         p1, p1_fmap = self.combd_1(x1_)
         y.append(p1)
