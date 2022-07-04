@@ -1,4 +1,4 @@
-# iSTFT Avocodo
+# iSTFT Avocodo Vocoder
 iSTFT's generator and Avocodo's discriminators.
 ![](iSTFTnet.PNG)
 ![](avocodo_arch.png)
