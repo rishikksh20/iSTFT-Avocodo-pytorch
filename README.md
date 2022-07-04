@@ -11,7 +11,7 @@ python train.py --config config_v1.json
 ## Notes :
 * Two of iSTFT Generator version can be used with Avocodo discriminaators.
 * Losses should similar to HiFi-GAN.
-* 50 % speed up  in training and 60 % improvement in inference speed.
+* 50 % speed up (0.33 s/b) in training and 60 % improvement in inference speed.
 
 
 ## Citations :
