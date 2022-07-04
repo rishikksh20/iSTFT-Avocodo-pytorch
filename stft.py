@@ -195,6 +195,7 @@ class TorchSTFT(torch.nn.Module):
         return torch.abs(forward_transform), torch.angle(forward_transform)
 
     def inverse(self, magnitude, phase):
+        self.window = self.window.to(magnitude.device)
         inverse_transform = torch.istft(
             magnitude * torch.exp(phase * 1j),
             self.filter_length, self.hop_length, self.win_length, window=self.window)
