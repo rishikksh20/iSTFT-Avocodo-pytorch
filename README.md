@@ -1,5 +1,5 @@
 # iSTFT Avocodo Vocoder
-iSTFT's generator and Avocodo's discriminators.
+iSTFT's generator and Avocodo's discriminators. Use `faster` branch for ultra fast training and inference compared to original `hifi-gan`.
 ![](iSTFTnet.PNG)
 ![](avocodo_arch.png)
 
