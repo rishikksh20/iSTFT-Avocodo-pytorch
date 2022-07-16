@@ -14,6 +14,11 @@ python train.py --config config_v1.json
 * `faster` branch of this repo is 50 % speed up (0.33 s/b) in training and 60 % improvement in inference speed.
 * Quality is not as good as Avocodo and ISTFTNet.
 
+## References :
+* https://github.com/rishikksh20/iSTFTNet-pytorch
+* https://github.com/rishikksh20/Avocodo-pytorch
+* https://github.com/jik876/hifi-gan
+
 
 ## Citations :
 ```
